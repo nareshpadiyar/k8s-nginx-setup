@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: naresh-webapp
+  namespace: naresh-webapp
+  labels:
+    app: naresh-webapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: naresh-webapp
+  template:
+    metadata:
+      labels:
+        app: naresh-webapp
+    spec:
+      containers:
+        - name: naresh-webapp
+          image: nareshpadiyar/naresh-app:v1
+          ports:
+            - containerPort: 80

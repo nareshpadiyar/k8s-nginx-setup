@@ -1,0 +1,186 @@
+# Steps to Deploy a WebApp NGINX on Kubernetes that displays the container hostname
+
+
+# Docker Image Creation
+
+Creating Customer docker image:
+Make sure you perform the below steps on a x86 processor architecture machine.
+Creating a docker image on Macbook can conflit with the ARM processor architecture.
+
+
+1. Create a Dockerfile
+
+Dockerfile:
+
+FROM nginx:latest
+COPY index.html /usr/share/nginx/html/index.html
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
+
+--------------------------------------------
+
+2. Create an index.html file
+
+index.html: 
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Demo</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            background-color: #c1f80a;
+        }
+    </style>
+</head>
+<body>
+    <center>
+        <h1>
+            Hello from NGINX Docker Container: {{HOSTNAME}}
+        </h1>
+    </center>
+</body>
+</html>
+
+--------------------------------------------
+
+3. Create an entrypoint.sh file
+
+entrypoint.sh:
+
+#!/bin/sh
+sed -i "s/{{HOSTNAME}}/$(hostname)/g" /usr/share/nginx/html/index.html
+exec "$@"
+
+--------------------------------------------
+
+4. Build the Docker image
+docker login docker.io
+docker build -t nareshpadiyar/naresh-app:v1 .
+
+--------------------------------------------
+
+5. Check if the image is created
+docker images
+
+--------------------------------------------
+
+6. Push the Docker image to the docker.io registry
+docker login docker.io
+docker push nareshpadiyar/naresh-app:v1
+
+--------------------------------------------
+
+7. Check if the images was pushed successfully to the docker.io repository
+https://hub.docker.com/repositories/nareshpadiyar
+
+--------------------------------------------
+
+# Deploying the WebApp on Kubernetes 
+
+1. Create an IKS Cluster , make sure it has Public InBound and OutBound access enabled.
+
+--------------------------------------------
+
+2. Connect to the IKS Cluster
+ibmcloud login -a cloud.ibm.com --sso
+ibmcloud ks cluster config --cluster <cluster-name>
+
+--------------------------------------------
+
+3. Create a namespace
+
+kubectl create namespace naresh-webapp
+
+--------------------------------------------
+
+4. Create the deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: naresh-webapp
+  namespace: naresh-webapp
+  labels:
+    app: naresh-webapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: naresh-webapp
+  template:
+    metadata:
+      labels:
+        app: naresh-webapp
+    spec:
+      containers:
+        - name: naresh-webapp
+          image: nareshpadiyar/naresh-app:v1
+          ports:
+            - containerPort: 80
+
+--------------------------------------------
+
+5. Apply the deployment.yaml file 
+kubectl apply -f deployment.yaml
+
+--------------------------------------------
+
+6. Check the pod status 
+kubectl get deployments -n naresh-webapp
+kubectl get pods -n naresh-webapp
+
+--------------------------------------------
+
+7. Create the service.yaml file. Expose the Deployment as a LoadBalancer Service type
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: naresh-webapp-service
+  namespace: naresh-webapp
+spec:
+  selector:
+    app: naresh-webapp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+
+--------------------------------------------
+
+8. Apply the service.yaml file
+kubectl apply -f service.yaml
+
+--------------------------------------------
+
+9. Check the status of the loadbalancer service
+kubectl get svc -n naresh-webapp
+
+--------------------------------------------
+
+10. Check the loadbalancer ingress IP/Domain
+kubectl describe svc naresh-webapp-service -n naresh-webapp
+
+--------------------------------------------
+
+11. To check all components of our webapp
+kubectl get all -n naresh-webapp
+
+--------------------------------------------
+
+12. Access the WebApp using the LoadBalancer IP/Domain
+http://<LoadBalancer_IP/Domain>
+
+--------------------------------------------
